@@ -11,23 +11,14 @@
 // You should have received a copy of the GNU General Public License along with this program. If
 // not, see <http://www.gnu.org/licenses/>.
 
-namespace Lastfm.Services
-{
-    /// <summary>
-    /// Objects that implement this have url pages at Last.fm
-    /// </summary>
-    public interface IHasURL
-    {
-        /// <summary>
-        /// Returns the Last.fm page of this object.
-        /// </summary>
-        /// <param name="language">A <see cref="SiteLanguage"/></param>
-        /// <returns>A <see cref="string"/></returns>
-        string GetURL(SiteLanguage language);
+using System;
 
-        /// <summary>
-        /// The Last.fm page of this object.
-        /// </summary>
-        string URL { get; }
+namespace Lastfm.Scrobbling.Exceptions
+{
+    public class ScrobblingException : Exception
+    {
+        public ScrobblingException(string details) : base(details)
+        {
+        }
     }
 }
