@@ -74,8 +74,8 @@ namespace Lastfm.Services
 
             XmlNode n = doc.GetElementsByTagName("weeklytrackchart")[0];
 
-            var nfrom = Utilities.TimestampToDateTime(Int64.Parse(n.Attributes[1].InnerText), DateTimeKind.Utc);
-            var nto = Utilities.TimestampToDateTime(Int64.Parse(n.Attributes[2].InnerText), DateTimeKind.Utc);
+            var nfrom = Utilities.TimestampToDateTime(long.Parse(n.Attributes[1].InnerText), DateTimeKind.Utc);
+            var nto = Utilities.TimestampToDateTime(long.Parse(n.Attributes[2].InnerText), DateTimeKind.Utc);
 
             var chart = new WeeklyTrackChart(new WeeklyChartTimeSpan(nfrom, nto));
 

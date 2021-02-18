@@ -20,30 +20,20 @@
 // DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Text;
 
-#if NET_4_0
-using System.Web.Configuration;
-#endif
-
 namespace System.Web.Util
 {
-#if NET_4_0
-	public
-#endif
-
-    internal class HttpEncoder
+    public class HttpEncoder
     {
         private static char[] hexChars = "0123456789abcdef".ToCharArray();
         private static object entitiesLock = new object();
         private static SortedDictionary<string, char> entities;
-#if NET_4_0
-		static Lazy <HttpEncoder> defaultEncoder;
-		static Lazy <HttpEncoder> currentEncoderLazy;
-#else
-        private static HttpEncoder defaultEncoder;
-#endif
+        private static Lazy<HttpEncoder> defaultEncoder;
+        private static Lazy<HttpEncoder> currentEncoderLazy;
+
         private static HttpEncoder currentEncoder;
 
         private static IDictionary<string, char> Entities
@@ -53,7 +43,9 @@ namespace System.Web.Util
                 lock (entitiesLock)
                 {
                     if (entities == null)
+                    {
                         InitEntities();
+                    }
 
                     return entities;
                 }
@@ -64,73 +56,62 @@ namespace System.Web.Util
         {
             get
             {
-#if NET_4_0
-				if (currentEncoder == null)
-					currentEncoder = currentEncoderLazy.Value;
-#endif
+                if (currentEncoder == null)
+                    currentEncoder = currentEncoderLazy.Value;
                 return currentEncoder;
             }
 #if NET_4_0
-			set {
-				if (value == null)
-					throw new ArgumentNullException ("value");
-				currentEncoder = value;
-			}
+            set {
+                if (value == null)
+                    throw new ArgumentNullException ("value");
+                currentEncoder = value;
+            }
 #endif
         }
 
-        public static HttpEncoder Default
-        {
-            get
-            {
-#if NET_4_0
-				return defaultEncoder.Value;
-#else
-                return defaultEncoder;
-#endif
-            }
-        }
+        public static HttpEncoder Default => defaultEncoder.Value;
 
         static HttpEncoder()
         {
-#if NET_4_0
-			defaultEncoder = new Lazy <HttpEncoder> (() => new HttpEncoder ());
-			currentEncoderLazy = new Lazy <HttpEncoder> (new Func <HttpEncoder> (GetCustomEncoderFromConfig));
-#else
-            defaultEncoder = new HttpEncoder();
-            currentEncoder = defaultEncoder;
-#endif
+            defaultEncoder = new Lazy<HttpEncoder>(() => new HttpEncoder());
+            currentEncoderLazy = new Lazy<HttpEncoder>(new Func<HttpEncoder>(GetCustomEncoderFromConfig));
         }
 
         public HttpEncoder()
         {
         }
 
-#if NET_4_0
-		protected internal virtual
-#else
-
-        internal static
-#endif
-        void HeaderNameValueEncode(string headerName, string headerValue, out string encodedHeaderName, out string encodedHeaderValue)
+        protected internal virtual void HeaderNameValueEncode(string headerName, string headerValue, out string encodedHeaderName, out string encodedHeaderValue)
         {
-            if (String.IsNullOrEmpty(headerName))
+            if (string.IsNullOrEmpty(headerName))
+            {
                 encodedHeaderName = headerName;
+            }
             else
+            {
                 encodedHeaderName = EncodeHeaderString(headerName);
+            }
 
-            if (String.IsNullOrEmpty(headerValue))
+            if (string.IsNullOrEmpty(headerValue))
+            {
                 encodedHeaderValue = headerValue;
+            }
             else
+            {
                 encodedHeaderValue = EncodeHeaderString(headerValue);
+            }
         }
 
         private static void StringBuilderAppend(string s, ref StringBuilder sb)
         {
             if (sb == null)
+            {
                 sb = new StringBuilder(s);
+            }
             else
+            {
                 sb.Append(s);
+            }
         }
 
         private static string EncodeHeaderString(string input)
@@ -143,70 +124,77 @@ namespace System.Web.Util
                 ch = input[i];
 
                 if ((ch < 32 && ch != 9) || ch == 127)
-                    StringBuilderAppend(String.Format("%{0:x2}", (int) ch), ref sb);
+                {
+                    StringBuilderAppend(string.Format("%{0:x2}", (int) ch), ref sb);
+                }
             }
 
             if (sb != null)
+            {
                 return sb.ToString();
+            }
 
             return input;
         }
 
+        protected internal virtual void HtmlAttributeEncode(string value, TextWriter output)
+        {
+            if (output == null)
+                throw new ArgumentNullException("output");
+
+            if (String.IsNullOrEmpty(value))
+                return;
+
+            output.Write(HtmlAttributeEncode(value));
+        }
+
+        protected internal virtual void HtmlDecode(string value, TextWriter output)
+        {
+            if (output == null)
+                throw new ArgumentNullException("output");
+
+            output.Write(HtmlDecode(value));
+        }
+
+        protected internal virtual void HtmlEncode(string value, TextWriter output)
+        {
+            if (output == null)
+                throw new ArgumentNullException("output");
+
+            output.Write(HtmlEncode(value));
+        }
+
+        protected internal virtual byte[] UrlEncode(byte[] bytes, int offset, int count)
+        {
+            return UrlEncodeToBytes(bytes, offset, count);
+        }
+
+        private static HttpEncoder GetCustomEncoderFromConfig()
+        {
+            var cfg = HttpRuntime.Section;
+            string typeName = cfg.EncoderType;
+
+            if (string.Compare(typeName, "System.Web.Util.HttpEncoder", StringComparison.OrdinalIgnoreCase) == 0)
+                return Default;
+
+            Type t = Type.GetType(typeName, false);
+            if (t == null)
+            {
+                throw new ConfigurationErrorsException($"Could not load type '{typeName}'.");
+            }
+
+            if (!typeof(HttpEncoder).IsAssignableFrom(t))
+            {
+                throw new ConfigurationErrorsException(
+                    $"'{typeName}' is not allowed here because it does not extend class 'System.Web.Util.HttpEncoder'."
+                );
+            }
+
+            return Activator.CreateInstance(t, false) as HttpEncoder;
+        }
+
 #if NET_4_0
-		protected internal virtual void HtmlAttributeEncode (string value, TextWriter output)
-		{
-			if (output == null)
-				throw new ArgumentNullException ("output");
-
-			if (String.IsNullOrEmpty (value))
-				return;
-
-			output.Write (HtmlAttributeEncode (value));
-		}
-
-		protected internal virtual void HtmlDecode (string value, TextWriter output)
-		{
-			if (output == null)
-				throw new ArgumentNullException ("output");
-
-			output.Write (HtmlDecode (value));
-		}
-
-		protected internal virtual void HtmlEncode (string value, TextWriter output)
-		{
-			if (output == null)
-				throw new ArgumentNullException ("output");
-
-			output.Write (HtmlEncode (value));
-		}
-
-		protected internal virtual byte[] UrlEncode (byte[] bytes, int offset, int count)
-		{
-			return UrlEncodeToBytes (bytes, offset, count);
-		}
-
-		static HttpEncoder GetCustomEncoderFromConfig ()
-		{
-			var cfg = HttpRuntime.Section;
-			string typeName = cfg.EncoderType;
-
-			if (String.Compare (typeName, "System.Web.Util.HttpEncoder", StringComparison.OrdinalIgnoreCase) == 0)
-				return Default;
-
-			Type t = Type.GetType (typeName, false);
-			if (t == null)
-				throw new ConfigurationErrorsException (String.Format ("Could not load type '{0}'.", typeName));
-
-			if (!typeof (HttpEncoder).IsAssignableFrom (t))
-				throw new ConfigurationErrorsException (
-					String.Format ("'{0}' is not allowed here because it does not extend class 'System.Web.Util.HttpEncoder'.", typeName)
-				);
-
-			return Activator.CreateInstance (t, false) as HttpEncoder;
-		}
-#endif
-#if NET_4_0
-		protected internal virtual
+        protected internal virtual
 #else
 
         internal static
@@ -261,7 +249,7 @@ namespace System.Web.Util
                 char c = s[i];
                 if (c == '&' || c == '"' || c == '<' || c == '>' || c > 159
 #if NET_4_0
-				    || c == '\''
+                    || c == '\''
 #endif
                 )
                 {
@@ -297,9 +285,9 @@ namespace System.Web.Util
                         output.Append("&quot;");
                         break;
 #if NET_4_0
-					case '\'':
-						output.Append ("&#39;");
-						break;
+                    case '\'':
+                        output.Append ("&#39;");
+                        break;
 #endif
                     case '\uff1c':
                         output.Append("&#65308;");
@@ -329,8 +317,8 @@ namespace System.Web.Util
         internal static string HtmlAttributeEncode(string s)
         {
 #if NET_4_0
-			if (String.IsNullOrEmpty (s))
-				return String.Empty;
+            if (String.IsNullOrEmpty (s))
+                return String.Empty;
 #else
             if (s == null)
                 return null;
@@ -344,7 +332,7 @@ namespace System.Web.Util
                 char c = s[i];
                 if (c == '&' || c == '"' || c == '<'
 #if NET_4_0
-				    || c == '\''
+                    || c == '\''
 #endif
                 )
                 {
@@ -373,9 +361,9 @@ namespace System.Web.Util
                         output.Append("&lt;");
                         break;
 #if NET_4_0
-				case '\'':
-					output.Append ("&#39;");
-					break;
+                case '\'':
+                    output.Append ("&#39;");
+                    break;
 #endif
                     default:
                         output.Append(s[i]);
@@ -396,7 +384,7 @@ namespace System.Web.Util
             if (s.IndexOf('&') == -1)
                 return s;
 #if NET_4_0
-			StringBuilder rawEntity = new StringBuilder ();
+            StringBuilder rawEntity = new StringBuilder ();
 #endif
             StringBuilder entity = new StringBuilder();
             StringBuilder output = new StringBuilder();
@@ -417,7 +405,7 @@ namespace System.Web.Util
                     {
                         entity.Append(c);
 #if NET_4_0
-						rawEntity.Append (c);
+                        rawEntity.Append (c);
 #endif
                         state = 1;
                     }
@@ -466,7 +454,7 @@ namespace System.Web.Util
                         }
                         entity.Append(c);
 #if NET_4_0
-						rawEntity.Append (c);
+                        rawEntity.Append (c);
 #endif
                     }
                 }
@@ -483,7 +471,7 @@ namespace System.Web.Util
                         state = 0;
                         entity.Length = 0;
 #if NET_4_0
-						rawEntity.Length = 0;
+                        rawEntity.Length = 0;
 #endif
                     }
                 }
@@ -492,9 +480,9 @@ namespace System.Web.Util
                     if (c == ';')
                     {
 #if NET_4_0
-						if (number == 0)
-							output.Append (rawEntity.ToString () + ";");
-						else
+                        if (number == 0)
+                            output.Append (rawEntity.ToString () + ";");
+                        else
 #endif
                         if (number > 65535)
                         {
@@ -509,7 +497,7 @@ namespace System.Web.Util
                         state = 0;
                         entity.Length = 0;
 #if NET_4_0
-						rawEntity.Length = 0;
+                        rawEntity.Length = 0;
 #endif
                         have_trailing_digits = false;
                     }
@@ -518,7 +506,7 @@ namespace System.Web.Util
                         number = number * 16 + Uri.FromHex(c);
                         have_trailing_digits = true;
 #if NET_4_0
-						rawEntity.Append (c);
+                        rawEntity.Append (c);
 #endif
                     }
                     else if (Char.IsDigit(c))
@@ -526,14 +514,14 @@ namespace System.Web.Util
                         number = number * 10 + ((int) c - '0');
                         have_trailing_digits = true;
 #if NET_4_0
-						rawEntity.Append (c);
+                        rawEntity.Append (c);
 #endif
                     }
                     else if (number == 0 && (c == 'x' || c == 'X'))
                     {
                         is_hex_value = true;
 #if NET_4_0
-						rawEntity.Append (c);
+                        rawEntity.Append (c);
 #endif
                     }
                     else
